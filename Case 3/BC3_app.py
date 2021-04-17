@@ -1,3 +1,5 @@
+### Business Case 3
+
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
@@ -11,6 +13,8 @@ import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import dash_bootstrap_components as dbc
+from mlxtend.frequent_patterns import apriori
+from mlxtend.frequent_patterns import association_rules
 
 # importing the 4 datasets
 products = pd.read_csv('datasets/products.csv')
@@ -26,6 +30,15 @@ product_departments = pd.merge(products, departments, how='left', on='department
 order_product_departments = pd.merge(order_products, product_departments, how='left', on='product_id').\
                         drop(["product_id"], axis=1)
 df = pd.merge(order_product_departments, orders, how='left', on='order_id')
+
+
+df_prod_dept = pd.merge(products,departments, left_on="department_id", right_on="department_id")\
+            .drop(columns=['product_id','department_id'])
+
+department_dict={}
+for dept in df_prod_dept['department_name'].unique():
+    product_list = df_prod_dept[df_prod_dept['department_name'] == dept]['product_name'].values
+    department_dict[dept] = product_list
 
 ############################################ components #####################################################
 
@@ -104,7 +117,10 @@ app.layout = html.Div([
 
     dropdown_substitute,
 
-
+    DataTable(
+        id='table1',
+        data=[]
+    ),
 
 
     html.Br(),
@@ -197,6 +213,28 @@ def products_analysis(product1, product2):
 
     return plot_1, plot_2, plot_3
 
+
+
+@app.callback(
+    Output('table1', 'data'),
+    Input('substitution', 'value')
+)
+
+def getRulesbyDept(department):
+    new_df = df[df['product_name'].isin(department_dict[department])].copy()
+    # Pivot the data - lines as orders and products as columns
+    pt = pd.pivot_table(new_df, index='order_id', columns='product_name',
+                        aggfunc=lambda x: 1 if len(x) > 0 else 0).fillna(0)
+    # Apply the APRIORI algorithm to get frequent itemsets
+    # Rules supported in at least 5% of the transactions (more info at http://rasbt.github.io/mlxtend/user_guide/frequent_patterns/apriori/)
+    frequent_itemsets_by_dept = apriori(pt, min_support=0.01, use_colnames=True)
+
+    # Generate the association rules - by lift
+    rulesLift = association_rules(frequent_itemsets_by_dept, metric="lift", min_threshold=0.01)
+    rulesLift.sort_values(by='lift', ascending=True, inplace=True)
+    rulesLift.drop(["antecedent support", "consequent support", "support", "leverage", "conviction"], axis=1,
+                   inplace=True)
+    return rulesLift.head(1)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
