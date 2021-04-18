@@ -31,11 +31,14 @@ order_product_departments = pd.merge(order_products, product_departments, how='l
                         drop(["product_id"], axis=1)
 df = pd.merge(order_product_departments, orders, how='left', on='order_id')
 
-top_substituition = pd.read_csv('datasets/top_substituition_by_dept.csv')
 
-department = 'beverages'
+df_prod_dept = pd.merge(products,departments, left_on="department_id", right_on="department_id")\
+            .drop(columns=['product_id','department_id'])
 
-labels_table = ['antecedents', 'consequents', 'confidence', 'lift', 'department']
+department_dict={}
+for dept in df_prod_dept['department_name'].unique():
+    product_list = df_prod_dept[df_prod_dept['department_name'] == dept]['product_name'].values
+    department_dict[dept] = product_list
 
 ############################################ components #####################################################
 
@@ -60,7 +63,7 @@ dropdown_product_2 = dcc.Dropdown(
     )
 
 dropdown_substitute = dcc.Dropdown(
-    id='department',
+    id='substitution',
     options=department_options,
     value='beverages'
     )
@@ -71,11 +74,6 @@ dropdown_product_recommendation = dcc.Dropdown(
     value='bread'
     )
 
-dashtable1 = dash_table.DataTable(
-        id='table1',
-       # columns=[labels_table.to_dict()],
-        data=top_substituition[top_substituition['department'] == department].to_dict('records')
-    )
 
 ######################################## app itself #######################################################
 
@@ -98,14 +96,14 @@ app.layout = html.Div([
         html.Div([
             html.Label('Select Product 1'),
             dropdown_product_1
-        ], style={'width': '40%'}, className='box'),
+        ], style={'width': '50%'}, className='box'),
 
         html.Br(),
 
         html.Div([
             html.Label('Select Product 2'),
             dropdown_product_2
-        ], style={'width': '40%'}, className='box')
+        ], style={'width': '50%'}, className='box')
 
     ], style={'display': 'flex'} ),
 
@@ -138,11 +136,10 @@ app.layout = html.Div([
 
     dropdown_substitute,
 
-    dashtable1,
-  #  DataTable(
- #       id='table1',
-#        data=[]
-#    ),
+    DataTable(
+        id='table1',
+        data=[]
+    ),
 
 
     html.Br(),
@@ -239,12 +236,24 @@ def products_analysis(product1, product2):
 
 @app.callback(
     Output('table1', 'data'),
-    Input('department', 'value')
+    Input('substitution', 'value')
 )
 
-def get_the_substitute(department):
-    table_updated = top_substituition[top_substituition['department'] == department].to_dict('records')
-    return table_updated
+def getRulesbyDept(department):
+    new_df = df[df['product_name'].isin(department_dict[department])].copy()
+    # Pivot the data - lines as orders and products as columns
+    pt = pd.pivot_table(new_df, index='order_id', columns='product_name',
+                        aggfunc=lambda x: 1 if len(x) > 0 else 0).fillna(0)
+    # Apply the APRIORI algorithm to get frequent itemsets
+    # Rules supported in at least 5% of the transactions (more info at http://rasbt.github.io/mlxtend/user_guide/frequent_patterns/apriori/)
+    frequent_itemsets_by_dept = apriori(pt, min_support=0.01, use_colnames=True)
+
+    # Generate the association rules - by lift
+    rulesLift = association_rules(frequent_itemsets_by_dept, metric="lift", min_threshold=0.01)
+    rulesLift.sort_values(by='lift', ascending=True, inplace=True)
+    rulesLift.drop(["antecedent support", "consequent support", "support", "leverage", "conviction"], axis=1,
+                   inplace=True)
+    return rulesLift.head(1)
 
 if __name__ == '__main__':
     app.run_server(debug=True)
