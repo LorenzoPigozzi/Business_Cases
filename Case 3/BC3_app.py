@@ -37,7 +37,7 @@ top_substituition.columns = ['Rule','Antecedent', 'Consequent', 'Support', 'Conf
 department = 'beverages'
 
 recommendation = pd.read_csv('datasets/recommendation.csv')
-recommendation.columns = ['Rule','Recommended', 'Base Product']
+recommendation.columns = ['Rule', 'Base Product','Recommended']
 recommendation_product = 'bread'
 
 ############################################ components #####################################################
