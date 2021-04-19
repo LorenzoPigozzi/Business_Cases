@@ -31,14 +31,13 @@ order_product_departments = pd.merge(order_products, product_departments, how='l
                         drop(["product_id"], axis=1)
 df = pd.merge(order_product_departments, orders, how='left', on='order_id')
 
+top_substituition = pd.read_csv('datasets/top_substituition_by_dept.csv')
 
-df_prod_dept = pd.merge(products,departments, left_on="department_id", right_on="department_id")\
-            .drop(columns=['product_id','department_id'])
+top_substituition = top_substituition.reset_index().iloc[:,1:]
 
-department_dict={}
-for dept in df_prod_dept['department_name'].unique():
-    product_list = df_prod_dept[df_prod_dept['department_name'] == dept]['product_name'].values
-    department_dict[dept] = product_list
+top_substituition.columns = ['Rule','Antecedent', 'Consequent', 'Support', 'Confidence', 'Lift', 'Department']
+
+department = 'beverages'
 
 ############################################ components #####################################################
 
@@ -63,7 +62,7 @@ dropdown_product_2 = dcc.Dropdown(
     )
 
 dropdown_substitute = dcc.Dropdown(
-    id='substitution',
+    id='department',
     options=department_options,
     value='beverages'
     )
@@ -74,6 +73,11 @@ dropdown_product_recommendation = dcc.Dropdown(
     value='bread'
     )
 
+dashtable1 = dash_table.DataTable(
+        id='table1',
+        columns=[{"name": i, "id": i} for i in top_substituition.columns],
+        data=top_substituition[top_substituition['Department'] == department].to_dict('records')
+    )
 
 ######################################## app itself #######################################################
 
@@ -85,8 +89,10 @@ app.layout = html.Div([
 
     html.H1('Market Basket Analysis: Instacart'),
 
-    html.H4('Authors: Lorenzo Pigozzi, Nguyen Phuc, Ema Mandura, Xavier'),
+    html.H4('Authors: Lorenzo Pigozzi, Nguyen Phuc, Ema Mandura, Xavier Goncalves'),
 
+    html.Br(),
+    html.Hr(),
     html.Br(),
 
     html.H2('Analysis by pair of products'),
@@ -129,20 +135,24 @@ app.layout = html.Div([
     html.Br(),
     html.Br(),
     html.Br(),
+    html.Hr(),
+    html.Br(),
 
-    html.H2('Top pair of substitute products by deparment'),
+    html.H2('Top pair of substitute products by department'),
 
     html.Label('Select a department'),
 
+    html.Br(),
+
     dropdown_substitute,
 
-    DataTable(
-        id='table1',
-        data=[]
-    ),
+    html.Br(),
+    html.Br(),
 
+    dashtable1,
 
     html.Br(),
+    html.Hr(),
     html.Br(),
 
 
@@ -236,24 +246,19 @@ def products_analysis(product1, product2):
 
 @app.callback(
     Output('table1', 'data'),
-    Input('substitution', 'value')
+    Input('department', 'value')
 )
 
-def getRulesbyDept(department):
-    new_df = df[df['product_name'].isin(department_dict[department])].copy()
-    # Pivot the data - lines as orders and products as columns
-    pt = pd.pivot_table(new_df, index='order_id', columns='product_name',
-                        aggfunc=lambda x: 1 if len(x) > 0 else 0).fillna(0)
-    # Apply the APRIORI algorithm to get frequent itemsets
-    # Rules supported in at least 5% of the transactions (more info at http://rasbt.github.io/mlxtend/user_guide/frequent_patterns/apriori/)
-    frequent_itemsets_by_dept = apriori(pt, min_support=0.01, use_colnames=True)
+#def get_the_substitute(department):
+ #   table_updated = top_substituition[top_substituition['department'] == department].to_dict('records')
+#    return table_updated
 
-    # Generate the association rules - by lift
-    rulesLift = association_rules(frequent_itemsets_by_dept, metric="lift", min_threshold=0.01)
-    rulesLift.sort_values(by='lift', ascending=True, inplace=True)
-    rulesLift.drop(["antecedent support", "consequent support", "support", "leverage", "conviction"], axis=1,
-                   inplace=True)
-    return rulesLift.head(1)
+def get_the_substitute(department):
+    #top_substituition.columns = ['Rule','Antecedent', 'Consequent', 'Support', 'Confidence', 'Lift', 'Department']
+    # df.index.name = 'Rule'
+    table_updated = top_substituition[top_substituition['Department'] == department].to_dict('records')
+
+    return table_updated
 
 if __name__ == '__main__':
     app.run_server(debug=True)
