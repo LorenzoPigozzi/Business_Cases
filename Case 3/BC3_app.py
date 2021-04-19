@@ -32,12 +32,13 @@ order_product_departments = pd.merge(order_products, product_departments, how='l
 df = pd.merge(order_product_departments, orders, how='left', on='order_id')
 
 top_substituition = pd.read_csv('datasets/top_substituition_by_dept.csv')
-
 top_substituition = top_substituition.reset_index().iloc[:,1:]
-
 top_substituition.columns = ['Rule','Antecedent', 'Consequent', 'Support', 'Confidence', 'Lift', 'Department']
-
 department = 'beverages'
+
+recommendation = pd.read_csv('datasets/recommendation.csv')
+recommendation.columns = ['Rule','Recommended', 'Base Product']
+recommendation_product = 'bread'
 
 ############################################ components #####################################################
 
@@ -48,6 +49,10 @@ for i in df['product_name'].unique().tolist():
 department_options = []
 for i in df['department_name'].unique().tolist():
     department_options.append({'label': i, 'value':  i})
+
+recommendation_option = []
+for i in recommendation['Base Product'].unique().tolist():
+    recommendation_option.append({'label': i, 'value':  i})
 
 dropdown_product_1 = dcc.Dropdown(
         id='product1',
@@ -68,8 +73,8 @@ dropdown_substitute = dcc.Dropdown(
     )
 
 dropdown_product_recommendation = dcc.Dropdown(
-    id='product_recommendation',
-    options=product_options,
+    id='recommendation_product',
+    options=recommendation_option,
     value='bread'
     )
 
@@ -78,6 +83,13 @@ dashtable1 = dash_table.DataTable(
         columns=[{"name": i, "id": i} for i in top_substituition.columns],
         data=top_substituition[top_substituition['Department'] == department].to_dict('records')
     )
+
+dashtable2 = dash_table.DataTable(
+        id='table2',
+        columns=[{"name": i, "id": i} for i in recommendation.columns],
+        data=recommendation[recommendation['Base Product'] == recommendation_product].to_dict('records')
+    )
+
 
 ######################################## app itself #######################################################
 
@@ -152,11 +164,13 @@ app.layout = html.Div([
     dashtable1,
 
     html.Br(),
+    html.Br(),
+    html.Br(),
     html.Hr(),
     html.Br(),
 
 
-    html.H2('Recommendation System'),
+    html.H2('Recommendation System: Complementary Products'),
 
     html.Label('Select a product'),
 
@@ -164,6 +178,17 @@ app.layout = html.Div([
 
     html.Br(),
     html.Br(),
+
+    dashtable2,
+
+    html.Br(),
+    html.Br(),
+    html.Br(),
+    html.Br(),
+    html.Br(),
+    html.Br()
+
+
 
 ])
 
@@ -225,7 +250,12 @@ def products_analysis(product1, product2):
                      ]
     # setting the layout
     plot_2_layout = dict(title=dict(text='Frequency purchases per day of the week'),
-                         xaxis=dict(title='Day of the week'),
+                         xaxis=dict(title='Day of the week',
+                                    tickmode = "array",
+                                    ticktext = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
+                                                "Friday", "Saturday"],
+                                    tickvals = [0, 1, 2, 3, 4, 5, 6, 7]
+                                    ),
                          yaxis=dict(title='Total Frequency')
                          )
     # displaying the graph
@@ -249,16 +279,20 @@ def products_analysis(product1, product2):
     Input('department', 'value')
 )
 
-#def get_the_substitute(department):
- #   table_updated = top_substituition[top_substituition['department'] == department].to_dict('records')
-#    return table_updated
-
 def get_the_substitute(department):
-    #top_substituition.columns = ['Rule','Antecedent', 'Consequent', 'Support', 'Confidence', 'Lift', 'Department']
-    # df.index.name = 'Rule'
     table_updated = top_substituition[top_substituition['Department'] == department].to_dict('records')
-
     return table_updated
+
+
+@app.callback(
+    Output('table2', 'data'),
+    Input('recommendation_product', 'value')
+)
+
+def get_the_substitute(recommendation_product):
+    table_updated2 = recommendation[recommendation['Base Product'] == recommendation_product].to_dict('records')
+    return table_updated2
+
 
 if __name__ == '__main__':
     app.run_server(debug=True)
