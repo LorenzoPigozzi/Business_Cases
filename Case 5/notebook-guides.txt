@@ -1,0 +1,13 @@
+### Follow the steps to run the project ###
+
+#1 Use the notebook BC5_DataPreprocessing.ipynb to preprocess and reduce the size of the original data
+
+#2 For clustering analysis, use BC5_Clustering.ipynb
+
+#3 Generate aggregate data for forecasting: BC5_Forecasting_DataAggregation.ipynb
+
+#4 Forecasting with LSTM model: BC5_Forecasting_LSTM.ipynb
+
+#5 Forecasting Sales quantity with ARIMA model: BC5_Forecasting_ARIMA.ipynb
+
+#6 Forecasting Revenue with ARIMA model: BC5_Forecasting_ARIMA_PoSReveue.ipynb
